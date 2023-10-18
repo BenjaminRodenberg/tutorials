@@ -29,10 +29,11 @@ from fenics import Function, FunctionSpace, Expression, Constant, DirichletBC, T
     File, solve, lhs, rhs, grad, inner, dot, dx, ds, interpolate, VectorFunctionSpace, MeshFunction, MPI
 from fenicsprecice import Adapter
 from errorcomputation import compute_errors
-from my_enums import ProblemType, DomainPart
+from my_enums import ProblemType, DomainPart, TimeDependence
 import argparse
 import numpy as np
-from problem_setup import get_geometry
+import sympy as sp
+from problem_setup import get_geometry, get_manufactured_solution
 import dolfin
 from dolfin import FacetNormal, dot
 
@@ -62,7 +63,6 @@ parser.add_argument("-e", "--error-tol", help="set error tolerance", type=float,
 
 args = parser.parse_args()
 
-fenics_dt = .1  # time step size
 # Error is bounded by coupling accuracy. In theory we would obtain the analytical solution.
 error_tol = args.error_tol
 
@@ -84,12 +84,14 @@ V_g = VectorFunctionSpace(mesh, 'P', 1)
 W = V_g.sub(0).collapse()
 
 # Define boundary conditions
-u_D = Expression('1 + x[0]*x[0] + alpha*x[1]*x[1] + beta*t', degree=2, alpha=alpha, beta=beta, t=0)
+u_manufactured, symbols = get_manufactured_solution(TimeDependence.POLYNOMIAL, alpha, beta, p=1)
+u_D = Expression(sp.printing.ccode(u_manufactured), degree=2, t=0)
 u_D_function = interpolate(u_D, V)
 
 if problem is ProblemType.DIRICHLET:
     # Define flux in x direction
-    f_N = Expression("2 * x[0]", degree=1, alpha=alpha, t=0)
+    flux_x_manufactured = sp.diff(u_manufactured, symbols['x'])
+    f_N = Expression(sp.printing.ccode(flux_x_manufactured), degree=1, t=0)
     f_N_function = interpolate(f_N, W)
 
 # Define initial value
@@ -107,12 +109,14 @@ elif problem is ProblemType.NEUMANN:
     precice_dt = precice.initialize(coupling_boundary, read_function_space=W, write_object=u_D_function)
 
 dt = Constant(0)
+fenics_dt = precice_dt  # use window size provided by preCICE as time step size
 dt.assign(np.min([fenics_dt, precice_dt]))
 
 # Define variational problem
 u = TrialFunction(V)
 v = TestFunction(V)
-f = Expression('beta - 2 - 2*alpha', degree=2, alpha=alpha, beta=beta, t=0)
+f_manufactured = - sp.diff(sp.diff(u_manufactured, symbols['x']), symbols['x']) - sp.diff(sp.diff(u_manufactured, symbols['y']), symbols['y']) + sp.diff(u_manufactured, symbols['t'])
+f = Expression(sp.printing.ccode(f_manufactured), degree=2, t=0)
 F = u * v / dt * dx + dot(grad(u), grad(v)) * dx - (u_n / dt + f) * v * dx
 
 bcs = [DirichletBC(V, u_D, remaining_boundary)]

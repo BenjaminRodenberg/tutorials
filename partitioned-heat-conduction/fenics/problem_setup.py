@@ -2,8 +2,9 @@
 Problem setup for partitioned-heat-conduction/fenics tutorial
 """
 
+import sympy as sp
 from fenics import SubDomain, Point, RectangleMesh, near, Function, Expression
-from my_enums import DomainPart
+from my_enums import DomainPart, TimeDependence
 
 
 y_bottom, y_top = 0, 1
@@ -49,3 +50,19 @@ def get_geometry(domain_part):
     remaining_boundary = ExcludeStraightBoundary()
 
     return mesh, coupling_boundary, remaining_boundary
+
+
+def get_manufactured_solution(time_dependence, alpha, beta, p=-1):
+    x, y, t = sp.symbols('x[0], x[1], t')
+    # Define analytical solution
+    if time_dependence == TimeDependence.POLYNOMIAL:
+        assert(p > 0)
+        g = (t + 1)**p
+    elif time_dependence == TimeDependence.TRIGONOMETRIC:
+        g = sp.sin(10*t)
+    else:
+        raise Exception(f"Invalid TimeDependence {time_dependence} provided.")
+
+    manufactured_solution = 1 + g * x**2 + alpha * y**2 + beta * t
+    print("manufactured solution = {}".format(manufactured_solution))
+    return manufactured_solution, {'x':x, 'y':y, 't':t}
