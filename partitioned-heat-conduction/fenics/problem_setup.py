@@ -34,7 +34,7 @@ class StraightBoundary(SubDomain):
 
 
 def get_geometry(domain_part):
-    nx = ny = 9
+    nx = ny = 15
 
     if domain_part is DomainPart.LEFT:
         p0 = Point(x_left, y_bottom)
@@ -59,7 +59,7 @@ def get_manufactured_solution(time_dependence, alpha, beta, p=-1):
         assert(p > 0)
         g = (t + 1)**p
     elif time_dependence == TimeDependence.TRIGONOMETRIC:
-        g = sp.sin(10*t)
+        g = 1 + sp.sin(10*t)
     else:
         raise Exception(f"Invalid TimeDependence {time_dependence} provided.")
 
