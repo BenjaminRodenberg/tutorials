@@ -4,9 +4,10 @@ from pathlib import Path
 import subprocess
 import datetime
 import os
+import uuid
 
 
-def render(dt):
+def render(dt, time_windows_reused):
     base_path = Path(__file__).parent.absolute()
 
     env = Environment(
@@ -19,12 +20,12 @@ def render(dt):
     precice_config_name = base_path / "precice-config.xml"
 
     with open(precice_config_name, "w") as file:
-        file.write(precice_config_template.render(time_window_size=dt))
+        file.write(precice_config_template.render(time_window_size=dt, time_windows_reused=time_windows_reused))
 
 
-def do_run(dt, error_tol=10e-3):
+def do_run(dt, error_tol=10e-3, time_windows_reused=5):
     fenics = Path(__file__).parent.absolute() / "fenics"
-    render(dt=dt)
+    render(dt=dt, time_windows_reused=time_windows_reused)
     print(f"Start run with dt={dt} at {datetime.datetime.now()} ...")
     participants = [
         {
@@ -61,14 +62,14 @@ def do_run(dt, error_tol=10e-3):
 
 
 if __name__ == "__main__":
-    min_dt = 0.01
+    min_dt = 0.1
     dts = [min_dt * 0.5**i for i in range(10)]
 
     df = pd.DataFrame(columns=["dt", "error Dirichlet", "error Neumann"])
 
-    summary_file = "convergence_study.csv"
+    summary_file = f"convergence-studies/{uuid.uuid4()}.csv"
     for dt in dts:
-        summary = do_run(dt, error_tol=10e10)
+        summary = do_run(dt, time_windows_reused=5, error_tol=10e10)
         df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)
 
         print(f"Write output to {summary_file}")

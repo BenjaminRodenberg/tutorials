@@ -59,7 +59,7 @@ def get_manufactured_solution(time_dependence, alpha, beta, p=-1):
         assert(p > 0)
         g = (t + 1)**p
     elif time_dependence == TimeDependence.TRIGONOMETRIC:
-        g = 1 + sp.sin(10*t)
+        g = 1 + sp.sin(t)
     else:
         raise Exception(f"Invalid TimeDependence {time_dependence} provided.")
 
