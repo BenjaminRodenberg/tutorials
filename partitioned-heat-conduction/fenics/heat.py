@@ -36,6 +36,7 @@ import sympy as sp
 from problem_setup import get_geometry, get_manufactured_solution
 import dolfin
 from dolfin import FacetNormal, dot
+import pandas as pd
 
 
 def determine_gradient(V_g, u, flux):
@@ -109,6 +110,7 @@ elif problem is ProblemType.NEUMANN:
     precice_dt = precice.initialize(coupling_boundary, read_function_space=W, write_object=u_D_function)
 
 dt = Constant(0)
+window_dt = precice_dt  # store for later
 fenics_dt = precice_dt  # use window size provided by preCICE as time step size
 dt.assign(np.min([fenics_dt, precice_dt]))
 
@@ -166,6 +168,8 @@ ranks << mesh_rank
 
 error_total, error_pointwise = compute_errors(u_n, u_ref, V)
 error_out << error_pointwise
+errors = []
+times = []
 
 # set t_1 = t_0 + dt, this gives u_D^1
 # call dt(0) to evaluate FEniCS Constant. Todo: is there a better way?
@@ -225,6 +229,8 @@ while precice.is_coupling_ongoing():
         temperature_out << u_n
         ref_out << u_ref
         error_out << error_pointwise
+        errors.append(error)
+        times.append(t)
 
     # Update Dirichlet BC
     u_D.t = t + float(dt)
@@ -232,3 +238,21 @@ while precice.is_coupling_ongoing():
 
 # Hold plot
 precice.finalize()
+
+df = pd.DataFrame()
+df["times"] = times
+df["errors"] = errors
+df = df.set_index('times')
+metadata = f'''# time_window_size: {window_dt}
+# time_step_size: {fenics_dt}
+'''
+
+filename = f"errors-{problem.value}.csv"
+
+import os
+
+os.remove(filename)
+
+with open(filename, 'a') as f:
+    f.write(f"{metadata}")
+    df.to_csv(f)
