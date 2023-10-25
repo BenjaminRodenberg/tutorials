@@ -67,8 +67,8 @@
       <acceleration:IQN-ILS>
         <data name="Temperature" mesh="Neumann-Mesh" />
         <initial-relaxation value="0.1" />
+        <!-- Quasi-Newton can run into errors for small time steps. Commenting out the PRECICE_CHECK can help. See https://github.com/precice/tutorials/issues/385#issuecomment-1779178024 -->
         <max-used-iterations value="{{max_used_iterations}}" />
-        <!-- Don't reuse windows, for g_poly because this can lead to failures, especially for small time steps. Reuse for g_tri -->
         <time-windows-reused value="{{time_windows_reused}}" />
         <filter type="QR2" limit="1e-3" />
       </acceleration:IQN-ILS>
