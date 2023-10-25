@@ -61,6 +61,8 @@ command_group = parser.add_mutually_exclusive_group(required=True)
 command_group.add_argument("-d", "--dirichlet", help="create a dirichlet problem", dest="dirichlet",
                            action="store_true")
 command_group.add_argument("-n", "--neumann", help="create a neumann problem", dest="neumann", action="store_true")
+parser.add_argument("-s", "--n-substeps", help="Number of substeps in one window for this participant", type=int, default=1)
+parser.add_argument("-p", "--polynomial-order", help="Polynomial order of manufactured solution", type=int, default=1)
 parser.add_argument("-e", "--error-tol", help="set error tolerance", type=float, default=10**-6,)
 
 args = parser.parse_args()
@@ -86,7 +88,7 @@ V_g = VectorFunctionSpace(mesh, 'P', 1)
 W = V_g.sub(0).collapse()
 
 # Define boundary conditions
-u_manufactured, symbols = get_manufactured_solution(TimeDependence.POLYNOMIAL, alpha, beta, p=1)
+u_manufactured, symbols = get_manufactured_solution(TimeDependence.POLYNOMIAL, alpha, beta, p=args.polynomial_order)
 u_D = Expression(sp.printing.ccode(u_manufactured), degree=2, t=0)
 u_D_function = interpolate(u_D, V)
 
@@ -112,7 +114,7 @@ elif problem is ProblemType.NEUMANN:
 
 dt = Constant(0)
 window_dt = precice_dt  # store for later
-fenics_dt = precice_dt  # use window size provided by preCICE as time step size
+fenics_dt = precice_dt / args.n_substeps  # use window size provided by preCICE as time step size
 dt.assign(np.min([fenics_dt, precice_dt]))
 
 # Define variational problem
