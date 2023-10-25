@@ -37,6 +37,7 @@ from problem_setup import get_geometry, get_manufactured_solution
 import dolfin
 from dolfin import FacetNormal, dot
 import pandas as pd
+from pathlib import Path
 
 
 def determine_gradient(V_g, u, flux):
@@ -154,10 +155,11 @@ else:
 mesh_rank.rename("myRank", "")
 
 # Generating output files
-temperature_out = File("output/%s.pvd" % precice.get_participant_name())
-ref_out = File("output/ref%s.pvd" % precice.get_participant_name())
-error_out = File("output/error%s.pvd" % precice.get_participant_name())
-ranks = File("output/ranks%s.pvd" % precice.get_participant_name())
+output_dir = Path("output")
+temperature_out = File(str(output_dir / f"{precice.get_participant_name()}.pvd"))
+ref_out = File(str(output_dir / f"ref{precice.get_participant_name()}.pvd"))
+error_out = File(str(output_dir / f"error{precice.get_participant_name()}.pvd"))
+ranks = File(str(output_dir / f"ranks{precice.get_participant_name()}.pvd"))
 
 # output solution and reference solution at t=0, n=0
 n = 0
@@ -247,12 +249,9 @@ metadata = f'''# time_window_size: {window_dt}
 # time_step_size: {fenics_dt}
 '''
 
-filename = f"errors-{problem.value}.csv"
+errors_csv = Path(f"errors-{problem.value}.csv")
+errors_csv.unlink(missing_ok=True)
 
-import os
-
-os.remove(filename)
-
-with open(filename, 'a') as f:
+with open(errors_csv, 'a') as f:
     f.write(f"{metadata}")
     df.to_csv(f)
