@@ -56,7 +56,7 @@ def get_manufactured_solution(time_dependence, alpha, beta, p=-1):
     x, y, t = sp.symbols('x[0], x[1], t')
     # Define analytical solution
     if time_dependence == TimeDependence.POLYNOMIAL:
-        assert(p > -1)
+        assert (p > -1)
         g = (t + 1)**p
     elif time_dependence == TimeDependence.TRIGONOMETRIC:
         g = 1 + sp.sin(t)
@@ -65,4 +65,4 @@ def get_manufactured_solution(time_dependence, alpha, beta, p=-1):
 
     manufactured_solution = 1 + g * x**2 + alpha * y**2 + beta * t
     print("manufactured solution = {}".format(manufactured_solution))
-    return manufactured_solution, {'x':x, 'y':y, 't':t}
+    return manufactured_solution, {'x': x, 'y': y, 't': t}

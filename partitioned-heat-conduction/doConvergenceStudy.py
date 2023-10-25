@@ -29,7 +29,7 @@ def render(precice_config_params):
         file.write(precice_config_template.render(precice_config_params))
 
 
-def do_run(dt, n_substeps = 1, polynomial_degree = 1, error_tol=10e-3, precice_config_params=default_precice_config_params):
+def do_run(dt, n_substeps=1, polynomial_degree=1, error_tol=10e-3, precice_config_params=default_precice_config_params):
     time_window_size = dt
     time_step_size = time_window_size / n_substeps
 
@@ -42,19 +42,27 @@ def do_run(dt, n_substeps = 1, polynomial_degree = 1, error_tol=10e-3, precice_c
     participants = [
         {
             "name": "Dirichlet",
-            "cmd":"-d",
+            "cmd": "-d",
         },
         {
             "name": "Neumann",
-            "cmd":"-n",
+            "cmd": "-n",
         },
     ]
 
-    for participant in participants: participant['logfile'] = f"stdout-{participant['name']}.log"
+    for participant in participants:
+        participant['logfile'] = f"stdout-{participant['name']}.log"
 
     for participant in participants:
         with open(fenics / participant['logfile'], "w") as outfile:
-            p = subprocess.Popen(["python3", fenics / "heat.py", participant["cmd"], f"-e {error_tol}", f"-s {n_substeps}", f"-p {polynomial_degree}"], cwd=fenics, stdout=outfile)
+            p = subprocess.Popen(["python3",
+                                  fenics / "heat.py",
+                                  participant["cmd"],
+                                  f"-e {error_tol}",
+                                  f"-s {n_substeps}",
+                                  f"-p {polynomial_degree}"],
+                                 cwd=fenics,
+                                 stdout=outfile)
             participant["proc"] = p
 
     for participant in participants:
@@ -97,7 +105,8 @@ if __name__ == "__main__":
 
     for dt in dts:
         for n in substeps:
-            summary = do_run(dt, n_substeps=n, polynomial_degree=polynomial_degree, error_tol=10e10, precice_config_params=precice_config_params)
+            summary = do_run(dt, n_substeps=n, polynomial_degree=polynomial_degree,
+                             error_tol=10e10, precice_config_params=precice_config_params)
             df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)
 
             print(f"Write preliminary output to {summary_file}")
@@ -119,7 +128,7 @@ if __name__ == "__main__":
     if repo.is_dirty():
         chash += "-dirty"
 
-    metadata={
+    metadata = {
         "git repository": repo.remotes.origin.url,
         "git commit": chash,
         "precice_config_params": precice_config_params,
