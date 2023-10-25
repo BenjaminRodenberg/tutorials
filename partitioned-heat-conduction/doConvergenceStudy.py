@@ -29,7 +29,7 @@ def render(precice_config_params):
         file.write(precice_config_template.render(precice_config_params))
 
 
-def do_run(dt, n_substeps = 1, error_tol=10e-3, precice_config_params=default_precice_config_params):
+def do_run(dt, n_substeps = 1, polynomial_degree = 1, error_tol=10e-3, precice_config_params=default_precice_config_params):
     time_window_size = dt
     time_step_size = time_window_size / n_substeps
 
@@ -54,7 +54,7 @@ def do_run(dt, n_substeps = 1, error_tol=10e-3, precice_config_params=default_pr
 
     for participant in participants:
         with open(fenics / participant['logfile'], "w") as outfile:
-            p = subprocess.Popen(["python3", fenics / "heat.py", participant["cmd"], f"-e {error_tol}", f"-s {n_substeps}"], cwd=fenics, stdout=outfile)
+            p = subprocess.Popen(["python3", fenics / "heat.py", participant["cmd"], f"-e {error_tol}", f"-s {n_substeps}", f"-p {polynomial_degree}"], cwd=fenics, stdout=outfile)
             participant["proc"] = p
 
     for participant in participants:
@@ -77,8 +77,14 @@ def do_run(dt, n_substeps = 1, error_tol=10e-3, precice_config_params=default_pr
 
 
 if __name__ == "__main__":
-    min_dt = 0.1
-    dts = [min_dt * 0.5**i for i in range(5)]
+    base_dt = 0.1
+
+    window_refinements = 5
+    step_refinements = 1
+    polynomial_degree = 2
+
+    dts = [base_dt * 0.5**i for i in range(window_refinements)]
+    substeps = [2**i for i in range(step_refinements)]
 
     df = pd.DataFrame()
 
@@ -90,8 +96,8 @@ if __name__ == "__main__":
     summary_file = Path("convergence-studies") / f"{uuid.uuid4()}.csv"
 
     for dt in dts:
-        for n in [1]:
-            summary = do_run(dt, n_substeps=n, error_tol=10e10, precice_config_params=precice_config_params)
+        for n in substeps:
+            summary = do_run(dt, n_substeps=n, polynomial_degree=polynomial_degree, error_tol=10e10, precice_config_params=precice_config_params)
             df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)
 
             print(f"Write preliminary output to {summary_file}")
