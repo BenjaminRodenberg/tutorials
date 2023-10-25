@@ -7,7 +7,13 @@ import os
 import uuid
 
 
-def render(dt, time_windows_reused):
+default_precice_config_params = {
+    'max_used_iterations': 10,
+    'time_windows_reused': 5,
+}
+
+
+def render(precice_config_params):
     base_path = Path(__file__).parent.absolute()
 
     env = Environment(
@@ -20,13 +26,16 @@ def render(dt, time_windows_reused):
     precice_config_name = base_path / "precice-config.xml"
 
     with open(precice_config_name, "w") as file:
-        file.write(precice_config_template.render(time_window_size=dt, time_windows_reused=time_windows_reused))
+        file.write(precice_config_template.render(precice_config_params))
 
 
-def do_run(dt, error_tol=10e-3, time_windows_reused=5):
+def do_run(dt, error_tol=10e-3, precice_config_params=default_precice_config_params):
     fenics = Path(__file__).parent.absolute() / "fenics"
-    render(dt=dt, time_windows_reused=time_windows_reused)
-    print(f"Start run with dt={dt} at {datetime.datetime.now()} ...")
+    precice_config_params['time_window_size'] = dt
+    render(precice_config_params)
+    print(f"{datetime.datetime.now()}: Start run with parameters {precice_config_params}")
+    print("Running...")
+
     participants = [
         {
             "name": "Dirichlet",
@@ -38,8 +47,10 @@ def do_run(dt, error_tol=10e-3, time_windows_reused=5):
         },
     ]
 
+    for participant in participants: participant['logfile'] = f"stdout-{participant['name']}.log"
+
     for participant in participants:
-        with open(fenics / f"stdout-{participant['name']}.log", "w") as outfile:
+        with open(fenics / participant['logfile'], "w") as outfile:
             p = subprocess.Popen(["python3", fenics / "heat.py", participant["cmd"], f"-e {error_tol}"], cwd=fenics, stdout=outfile)
             participant["proc"] = p
 
@@ -48,7 +59,7 @@ def do_run(dt, error_tol=10e-3, time_windows_reused=5):
 
     for participant in participants:
         if participant["proc"].returncode != 0:
-            raise Exception(f'Experiment with dt={dt} failed!')
+            raise Exception(f'Experiment with dt={dt} failed. See logs {[p["logfile"] for p in participants]}')
 
     print("Done.")
     print("Postprocessing...")
@@ -63,20 +74,32 @@ def do_run(dt, error_tol=10e-3, time_windows_reused=5):
 
 if __name__ == "__main__":
     min_dt = 0.1
-    dts = [min_dt * 0.5**i for i in range(10)]
+    dts = [min_dt * 0.5**i for i in range(5)]
 
     df = pd.DataFrame(columns=["dt", "error Dirichlet", "error Neumann"])
 
+    precice_config_params = {
+        'max_used_iterations': 10,
+        'time_windows_reused': 5,
+    }
+
     summary_file = f"convergence-studies/{uuid.uuid4()}.csv"
+
     for dt in dts:
-        summary = do_run(dt, time_windows_reused=5, error_tol=10e10)
+        summary = do_run(dt, error_tol=10e10, precice_config_params=precice_config_params)
         df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)
 
-        print(f"Write output to {summary_file}")
+        print(f"Write preliminary output to {summary_file}")
         df.to_csv(summary_file)
 
         term_size = os.get_terminal_size()
         print('-' * term_size.columns)
-        print("Preliminary results:")
         print(df)
         print('-' * term_size.columns)
+
+    df = df.set_index('dt')
+    print(f"Write final output to {summary_file}")
+    df.to_csv(summary_file)
+    print('-' * term_size.columns)
+    print(df)
+    print('-' * term_size.columns)

@@ -67,7 +67,7 @@
       <acceleration:IQN-ILS>
         <data name="Temperature" mesh="Neumann-Mesh" />
         <initial-relaxation value="0.1" />
-        <max-used-iterations value="5" />
+        <max-used-iterations value="{{max_used_iterations}}" />
         <!-- Don't reuse windows, for g_poly because this can lead to failures, especially for small time steps. Reuse for g_tri -->
         <time-windows-reused value="{{time_windows_reused}}" />
         <filter type="QR2" limit="1e-3" />
