@@ -6,12 +6,20 @@ import datetime
 import os
 import uuid
 import argparse
+from enum import Enum
 
 
 default_precice_config_params = {
     'max_used_iterations': 10,
     'time_windows_reused': 5,
 }
+
+
+class Experiments(Enum):
+    POLYNOMIAL0 = 'p0'
+    POLYNOMIAL1 = 'p1'
+    POLYNOMIAL2 = 'p2'
+    TRIGONOMETRIC = 't'
 
 
 def render(precice_config_params):
@@ -30,7 +38,7 @@ def render(precice_config_params):
         file.write(precice_config_template.render(precice_config_params))
 
 
-def do_run(dt, n_substeps=1, polynomial_degree=1, error_tol=10e-3, precice_config_params=default_precice_config_params):
+def do_run(dt, n_substeps=1, precice_config_params=default_precice_config_params, experiment_params={}):
     time_window_size = dt
     time_step_size = time_window_size / n_substeps
 
@@ -56,12 +64,11 @@ def do_run(dt, n_substeps=1, polynomial_degree=1, error_tol=10e-3, precice_confi
 
     for participant in participants:
         with open(fenics / participant['logfile'], "w") as outfile:
-            p = subprocess.Popen(["python3",
-                                  fenics / "heat.py",
-                                  participant["cmd"],
-                                  f"-e {error_tol}",
-                                  f"-s {n_substeps}",
-                                  f"-p {polynomial_degree}"],
+            cmd = ["python3",
+                   fenics / "heat.py",
+                   participant["cmd"],
+                   f"--n-substeps={n_substeps}"] + [f"{opt}={value}" for opt, value in experiment_params.items()]
+            p = subprocess.Popen(cmd,
                                  cwd=fenics,
                                  stdout=outfile)
             participant["proc"] = p
@@ -88,9 +95,26 @@ def do_run(dt, n_substeps=1, polynomial_degree=1, error_tol=10e-3, precice_confi
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Solving heat equation for simple or complex interface case")
-    parser.add_argument("-dt", "--base-time-window-size", help="Base time window / time step size", type=float, default=0.1)
-    parser.add_argument("-w", "--time-window-refinements", help="Number of refinements by factor 2 for the time window size", type=int, default=5)
-    parser.add_argument("-s", "--time-step-refinements", help="Number of refinements by factor 2 for the time step size ( >1 will result in subcycling)", type=int, default=1)
+    parser.add_argument(
+        "-dt",
+        "--base-time-window-size",
+        help="Base time window / time step size",
+        type=float,
+        default=0.1)
+    parser.add_argument(
+        "-w",
+        "--time-window-refinements",
+        help="Number of refinements by factor 2 for the time window size",
+        type=int,
+        default=5)
+    parser.add_argument(
+        "-s",
+        "--time-step-refinements",
+        help="Number of refinements by factor 2 for the time step size ( >1 will result in subcycling)",
+        type=int,
+        default=1)
+    parser.add_argument("-e", "--experiment", help="Provide identifier for a specific experiment",
+                        choices=[e.value for e in Experiments], default=Experiments.POLYNOMIAL0.value)
     args = parser.parse_args()
 
     base_dt = args.base_time_window_size
@@ -108,12 +132,39 @@ if __name__ == "__main__":
         'time_windows_reused': 5,
     }
 
+    if args.experiment == 'p0':
+        experiment_params = {
+            '--polynomial-order': 0,
+            '--time-dependence': 'polynomial',
+        }
+    elif args.experiment == 'p1':
+        experiment_params = {
+            '--polynomial-order': 1,
+            '--time-dependence': 'polynomial',
+        }
+    elif args.experiment == 'p2':
+        experiment_params = {
+            '--polynomial-order': 2,
+            '--time-dependence': 'polynomial',
+        }
+    elif args.experiment == 't':
+        experiment_params = {
+            '--time-dependence': 'trigonometric',
+        }
+    else:
+        raise Exception("Unknown experiment identifier")
+
+    experiment_params['--error-tol'] = 10e10
+
     summary_file = Path("convergence-studies") / f"{uuid.uuid4()}.csv"
 
     for dt in dts:
         for n in substeps:
-            summary = do_run(dt, n_substeps=n, polynomial_degree=polynomial_degree,
-                             error_tol=10e10, precice_config_params=precice_config_params)
+            summary = do_run(
+                dt,
+                n_substeps=n,
+                precice_config_params=precice_config_params,
+                experiment_params=experiment_params)
             df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)
 
             print(f"Write preliminary output to {summary_file}")
@@ -140,6 +191,7 @@ if __name__ == "__main__":
         "git commit": chash,
         "args": args,
         "precice_config_params": precice_config_params,
+        "experiment_params": experiment_params,
     }
 
     summary_file.unlink()
@@ -150,5 +202,8 @@ if __name__ == "__main__":
         df.to_csv(f)
 
     print('-' * term_size.columns)
+    for key, value in metadata.items():
+        print(f"{key}:{value}")
+    print()
     print(df)
     print('-' * term_size.columns)

@@ -68,6 +68,8 @@ parser.add_argument(
     type=int,
     default=1)
 parser.add_argument("-p", "--polynomial-order", help="Polynomial order of manufactured solution", type=int, default=1)
+parser.add_argument("-t", "--time-dependence", help="Time dependence of manufactured solution",
+                    choices=[e.value for e in TimeDependence], default=TimeDependence.POLYNOMIAL.value)
 parser.add_argument("-e", "--error-tol", help="set error tolerance", type=float, default=10**-6,)
 
 args = parser.parse_args()
@@ -93,7 +95,8 @@ V_g = VectorFunctionSpace(mesh, 'P', 1)
 W = V_g.sub(0).collapse()
 
 # Define boundary conditions
-u_manufactured, symbols = get_manufactured_solution(TimeDependence.POLYNOMIAL, alpha, beta, p=args.polynomial_order)
+u_manufactured, symbols = get_manufactured_solution(TimeDependence(
+    args.time_dependence), alpha, beta, p=args.polynomial_order)
 u_D = Expression(sp.printing.ccode(u_manufactured), degree=2, t=0)
 u_D_function = interpolate(u_D, V)
 
