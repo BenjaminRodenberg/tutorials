@@ -180,8 +180,7 @@ if __name__ == "__main__":
 
     import git
 
-    repo_base = Path(__file__).parent / ".."
-    repo = git.Repo(repo_base)
+    repo = git.Repo(__file__, search_parent_directories=True)
     chash = str(repo.head.commit)[:7]
     if repo.is_dirty():
         chash += "-dirty"
