@@ -5,6 +5,7 @@ import subprocess
 import datetime
 import os
 import uuid
+import argparse
 
 
 default_precice_config_params = {
@@ -85,10 +86,16 @@ def do_run(dt, n_substeps=1, polynomial_degree=1, error_tol=10e-3, precice_confi
 
 
 if __name__ == "__main__":
-    base_dt = 0.1
 
-    window_refinements = 5
-    step_refinements = 1
+    parser = argparse.ArgumentParser(description="Solving heat equation for simple or complex interface case")
+    parser.add_argument("-dt", "--base-time-window-size", help="Base time window / time step size", type=float, default=0.1)
+    parser.add_argument("-w", "--time-window-refinements", help="Number of refinements by factor 2 for the time window size", type=int, default=5)
+    parser.add_argument("-s", "--time-step-refinements", help="Number of refinements by factor 2 for the time step size ( >1 will result in subcycling)", type=int, default=1)
+    args = parser.parse_args()
+
+    base_dt = args.base_time_window_size
+    window_refinements = args.time_window_refinements
+    step_refinements = args.time_step_refinements
     polynomial_degree = 2
 
     dts = [base_dt * 0.5**i for i in range(window_refinements)]
@@ -131,6 +138,7 @@ if __name__ == "__main__":
     metadata = {
         "git repository": repo.remotes.origin.url,
         "git commit": chash,
+        "args": args,
         "precice_config_params": precice_config_params,
     }
 
