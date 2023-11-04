@@ -38,12 +38,8 @@ def render(precice_config_params):
         file.write(precice_config_template.render(precice_config_params))
 
 
-def do_run(dt, n_substeps=1, precice_config_params=default_precice_config_params, experiment_params={}):
-    time_window_size = dt
-    time_step_size = time_window_size / n_substeps
-
+def do_run(precice_config_params=default_precice_config_params, experiment_params={}):
     fenics = Path(__file__).parent.absolute() / "fenics"
-    precice_config_params['time_window_size'] = time_window_size
     render(precice_config_params)
     print(f"{datetime.datetime.now()}: Start run with parameters {precice_config_params}")
     print("Running...")
@@ -66,8 +62,7 @@ def do_run(dt, n_substeps=1, precice_config_params=default_precice_config_params
         with open(fenics / participant['logfile'], "w") as outfile:
             cmd = ["python3",
                    fenics / "heat.py",
-                   participant["cmd"],
-                   f"--n-substeps={n_substeps}"] + [f"{opt}={value}" for opt, value in experiment_params.items()]
+                   participant["cmd"]] + [f"{opt}={value}" for opt, value in experiment_params.items()]
             p = subprocess.Popen(cmd,
                                  cwd=fenics,
                                  stdout=outfile)
@@ -82,10 +77,11 @@ def do_run(dt, n_substeps=1, precice_config_params=default_precice_config_params
 
     print("Done.")
     print("Postprocessing...")
+    time_window_size = precice_config_params['time_window_size']
     summary = {"time window size": time_window_size}
     for participant in participants:
         df = pd.read_csv(fenics / f"errors-{participant['name']}.csv", comment="#")
-        summary[f"time step size {participant['name']}"] = time_step_size
+        summary[f"time step size {participant['name']}"] = time_window_size / experiment_params['--n-substeps']
         summary[f"error {participant['name']}"] = df["errors"].abs().max()
     print("Done.")
 
@@ -116,14 +112,6 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--experiment", help="Provide identifier for a specific experiment",
                         choices=[e.value for e in Experiments], default=Experiments.POLYNOMIAL0.value)
     args = parser.parse_args()
-
-    base_dt = args.base_time_window_size
-    window_refinements = args.time_window_refinements
-    step_refinements = args.time_step_refinements
-    polynomial_degree = 2
-
-    dts = [base_dt * 0.5**i for i in range(window_refinements)]
-    substeps = [2**i for i in range(step_refinements)]
 
     df = pd.DataFrame()
 
@@ -158,11 +146,11 @@ if __name__ == "__main__":
 
     summary_file = Path("convergence-studies") / f"{uuid.uuid4()}.csv"
 
-    for dt in dts:
-        for n in substeps:
+    for dt in [args.base_time_window_size * 0.5**i for i in range(args.time_window_refinements)]:
+        for n in [2**i for i in range(args.time_step_refinements)]:
+            precice_config_params['time_window_size'] = dt
+            experiment_params['--n-substeps'] = n
             summary = do_run(
-                dt,
-                n_substeps=n,
                 precice_config_params=precice_config_params,
                 experiment_params=experiment_params)
             df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)
