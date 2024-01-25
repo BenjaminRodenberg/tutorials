@@ -36,7 +36,7 @@ def main(side='Dirichlet'):
     degree = 1  # linear finite elements
     ns.basis = domain.basis('std', degree=degree)
     ns.alpha = 3  # parameter of problem
-    ns.beta = 1.3  # parameter of problem
+    ns.beta = 1.2  # parameter of problem
     ns.u = 'basis_n ?lhs_n'  # solution
     ns.dudt = 'basis_n (?lhs_n - ?lhs0_n) / ?dt'  # time derivative
     ns.flux = 'basis_n ?fluxdofs_n'  # heat flux
