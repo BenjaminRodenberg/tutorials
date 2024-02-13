@@ -6,6 +6,7 @@ import datetime
 import os
 import uuid
 import argparse
+import sys
 from enum import Enum
 
 
@@ -22,7 +23,7 @@ class Experiments(Enum):
     TRIGONOMETRIC = 't'
 
 
-def render(precice_config_params):
+def render(template_path, precice_config_params):
     base_path = Path(__file__).parent.absolute()
 
     env = Environment(
@@ -30,7 +31,7 @@ def render(precice_config_params):
         autoescape=select_autoescape(['xml'])
     )
 
-    precice_config_template = env.get_template('precice-config-template.xml')
+    precice_config_template = env.get_template(template_path)
 
     precice_config_name = base_path / "precice-config.xml"
 
@@ -38,33 +39,19 @@ def render(precice_config_params):
         file.write(precice_config_template.render(precice_config_params))
 
 
-def do_run(precice_config_params=default_precice_config_params, experiment_params={}):
-    fenics = Path(__file__).parent.absolute() / "fenics"
-    render(precice_config_params)
+def do_run(template_path, precice_config_params, participants):
+    render(template_path, precice_config_params)
     print(f"{datetime.datetime.now()}: Start run with parameters {precice_config_params}")
     print("Running...")
-
-    participants = [
-        {
-            "name": "Dirichlet",
-            "cmd": "-d",
-        },
-        {
-            "name": "Neumann",
-            "cmd": "-n",
-        },
-    ]
 
     for participant in participants:
         participant['logfile'] = f"stdout-{participant['name']}.log"
 
     for participant in participants:
-        with open(fenics / participant['logfile'], "w") as outfile:
-            cmd = ["python3",
-                   fenics / "heat.py",
-                   participant["cmd"]] + [f"{opt}={value}" for opt, value in experiment_params.items()]
+        with open(participant['root'] / participant['logfile'], "w") as outfile:
+            cmd = participant["exec"] + participant["params"] + [f"{keyword}={value}" for keyword, value in participant['kwargs'].items()]
             p = subprocess.Popen(cmd,
-                                 cwd=fenics,
+                                 cwd=participant['root'],
                                  stdout=outfile)
             participant["proc"] = p
 
@@ -80,8 +67,8 @@ def do_run(precice_config_params=default_precice_config_params, experiment_param
     time_window_size = precice_config_params['time_window_size']
     summary = {"time window size": time_window_size}
     for participant in participants:
-        df = pd.read_csv(fenics / f"errors-{participant['name']}.csv", comment="#")
-        summary[f"time step size {participant['name']}"] = time_window_size / experiment_params['--n-substeps']
+        df = pd.read_csv(participant['root'] / f"errors-{participant['name']}.csv", comment="#")
+        summary[f"time step size {participant['name']}"] = time_window_size / participant['kwargs']['--n-substeps']
         summary[f"error {participant['name']}"] = df["errors"].abs().max()
     print("Done.")
 
@@ -89,8 +76,13 @@ def do_run(precice_config_params=default_precice_config_params, experiment_param
 
 
 if __name__ == "__main__":
+    n_supported_participants = 2
 
     parser = argparse.ArgumentParser(description="Solving heat equation for simple or complex interface case")
+    parser.add_argument(
+        "template_path",
+        help="template for the preCICE configuration file",
+        type=str)
     parser.add_argument(
         "-dt",
         "--base-time-window-size",
@@ -104,11 +96,25 @@ if __name__ == "__main__":
         type=int,
         default=5)
     parser.add_argument(
+        "-sb",
+        "--base-time-step-refinement",
+        help="Base factor for time window size / time step size",
+        type=int,
+        nargs=n_supported_participants,
+        default=n_supported_participants*[1])
+    parser.add_argument(
         "-s",
         "--time-step-refinements",
         help="Number of refinements by factor 2 for the time step size ( >1 will result in subcycling)",
         type=int,
         default=1)
+    parser.add_argument(
+        "-sf",
+        "--time-step-refinement-factor",
+        help="Factor of time step refinements for each participant (use 1, if you want to use a fixed time step / time window relationship for one participant while refining the time steps for the other participant)",
+        type=int,
+        nargs=n_supported_participants,
+        default=n_supported_participants*[2])
     parser.add_argument("-e", "--experiment", help="Provide identifier for a specific experiment",
                         choices=[e.value for e in Experiments], default=Experiments.POLYNOMIAL0.value)
     args = parser.parse_args()
@@ -120,39 +126,57 @@ if __name__ == "__main__":
         'time_windows_reused': 5,
     }
 
-    if args.experiment == 'p0':
-        experiment_params = {
-            '--polynomial-order': 0,
-            '--time-dependence': 'polynomial',
-        }
-    elif args.experiment == 'p1':
-        experiment_params = {
-            '--polynomial-order': 1,
-            '--time-dependence': 'polynomial',
-        }
-    elif args.experiment == 'p2':
-        experiment_params = {
-            '--polynomial-order': 2,
-            '--time-dependence': 'polynomial',
-        }
-    elif args.experiment == 't':
-        experiment_params = {
-            '--time-dependence': 'trigonometric',
-        }
-    else:
-        raise Exception("Unknown experiment identifier")
+    root_folder = Path(__file__).parent.absolute()
 
-    experiment_params['--error-tol'] = 10e10
+    participants = [
+        {
+            "name": "Dirichlet",
+            "root": root_folder / "fenics",
+            "exec": ["python3", "heat.py"],  # how to execute the participant, e.g. python3 script.py
+            "params": ["-d"],  # list of positional arguments that will be used. Results in python3 script.py param1 ...
+            "kwargs": {  # dict with keyword arguments that will be used. Results in python3 script.py param1 ... k1=v1 k2=v2 ...
+                '--n-substeps': None,  # will be defined later
+                '--error-tol': 10e10,
+            },
+        },
+        {
+            "name": "Neumann",
+            "root": root_folder / "fenics",
+            "exec": ["python3", "heat.py"],
+            "params": ["-n"],  # list of positional arguments that will be used. Results in python3 script.py param1 ...
+            "kwargs": {  # dict with keyword arguments that will be used. Results in python3 script.py param1 ... k1=v1 k2=v2 ...
+                '--n-substeps': None,  # will be defined later
+                '--error-tol': 10e10,
+            },
+        },
+    ]
+
+    for p in participants:
+        if args.experiment == 'p0':
+            p["kwargs"]['--polynomial-order'] = 0
+            p["kwargs"]['--time-dependence'] = 'polynomial'
+        elif args.experiment == 'p1':
+            p["kwargs"]['--polynomial-order'] = 1
+            p["kwargs"]['--time-dependence'] = 'polynomial'
+        elif args.experiment == 'p2':
+            p["kwargs"]['--polynomial-order'] = 2
+            p["kwargs"]['--time-dependence'] = 'polynomial'
+        elif args.experiment == 't':
+            p["kwargs"]['--time-dependence'] = 'trigonometric'
+        else:
+            raise Exception("Unknown experiment identifier")
 
     summary_file = Path("convergence-studies") / f"{uuid.uuid4()}.csv"
 
     for dt in [args.base_time_window_size * 0.5**i for i in range(args.time_window_refinements)]:
-        for n in [2**i for i in range(args.time_step_refinements)]:
+        for refinement in range(args.time_step_refinements):
             precice_config_params['time_window_size'] = dt
-            experiment_params['--n-substeps'] = n
-            summary = do_run(
-                precice_config_params=precice_config_params,
-                experiment_params=experiment_params)
+            i = 0
+            for p in participants:
+                p['kwargs']['--n-substeps'] = args.base_time_step_refinement[i]*args.time_step_refinement_factor[i]**refinement
+                i += 1
+
+            summary = do_run(args.template_path, precice_config_params, participants)
             df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)
 
             print(f"Write preliminary output to {summary_file}")
@@ -167,6 +191,7 @@ if __name__ == "__main__":
     print(f"Write final output to {summary_file}")
 
     import git
+    import precice
 
     repo = git.Repo(__file__, search_parent_directories=True)
     chash = str(repo.head.commit)[:7]
@@ -176,9 +201,12 @@ if __name__ == "__main__":
     metadata = {
         "git repository": repo.remotes.origin.url,
         "git commit": chash,
+        "precice.get_version_information()": precice.get_version_information(),
+        "precice.__version__": precice.__version__,
+        "run cmd": "python3 " + " ".join(sys.argv),
         "args": args,
         "precice_config_params": precice_config_params,
-        "experiment_params": experiment_params,
+        "participants": participants,
     }
 
     summary_file.unlink()
