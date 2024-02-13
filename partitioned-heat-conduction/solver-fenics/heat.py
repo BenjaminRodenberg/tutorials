@@ -36,6 +36,11 @@ import sympy as sp
 from problem_setup import get_geometry, get_manufactured_solution
 import pandas as pd
 from pathlib import Path
+from enum import Enum
+
+
+class TimeSteppingSchemes(Enum):
+    IMPLICIT_EULER = "ImplicitEuler"
 
 
 def determine_gradient(V_g, u, flux):
@@ -66,9 +71,19 @@ parser.add_argument("-p", "--polynomial-order", help="Polynomial order of manufa
 parser.add_argument("-t", "--time-dependence", help="Time dependence of manufactured solution",
                     choices=[e.value for e in TimeDependence], default=TimeDependence.POLYNOMIAL.value)
 parser.add_argument("-e", "--error-tol", help="set error tolerance", type=float, default=10**-6,)
+parser.add_argument(
+    "-ts",
+    "--time-stepping",
+    help="Time stepping scheme being used.",
+    type=str,
+    choices=[
+        s.value for s in TimeSteppingSchemes],
+    default=TimeSteppingSchemes.IMPLICIT_EULER.value)
 
 args = parser.parse_args()
 participant_name = args.participantName
+
+assert(args.time_stepping == TimeSteppingSchemes.IMPLICIT_EULER.value)
 
 # Error is bounded by coupling accuracy. In theory we would obtain the analytical solution.
 error_tol = args.error_tol

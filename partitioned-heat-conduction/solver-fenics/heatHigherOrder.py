@@ -44,6 +44,12 @@ from utils.ButcherTableaux import *
 import utils.utils as utl
 import pandas as pd
 from pathlib import Path
+from enum import Enum
+
+
+class TimeSteppingSchemes(Enum):
+    GAUSS_LEGENDRE_2 = "GaussLegendre2"
+    LOBATTO_IIIC_3 = "LobattoIIIC3"
 
 
 def determine_gradient(V_g, u, flux):
@@ -74,6 +80,14 @@ parser.add_argument("-p", "--polynomial-order", help="Polynomial order of manufa
 parser.add_argument("-t", "--time-dependence", help="Time dependence of manufactured solution",
                     choices=[e.value for e in TimeDependence], default=TimeDependence.POLYNOMIAL.value)
 parser.add_argument("-e", "--error-tol", help="set error tolerance", type=float, default=10**-6,)
+parser.add_argument(
+    "-ts",
+    "--time-stepping",
+    help="Time stepping scheme being used.",
+    type=str,
+    choices=[
+        s.value for s in TimeSteppingSchemes],
+    default=TimeSteppingSchemes.GAUSS_LEGENDRE_2.value)
 
 args = parser.parse_args()
 participant_name = args.participantName
@@ -115,8 +129,13 @@ u_n = interpolate(u_D, V)
 u_n.rename("Temperature", "")
 
 # time stepping setup
-# scheme
-tsm = GaussLegendre(2)
+if args.time_stepping == TimeSteppingSchemes.GAUSS_LEGENDRE_2.value:
+    tsm = GaussLegendre(2)
+elif args.time_stepping == TimeSteppingSchemes.LOBATTO_IIIC_3.value:
+    tsm = LobattoIIIC(3)
+else:
+    raise Exception(f"Invalid time stepping scheme {args.time_stepping}. Please use one of {[ts.value for ts in TimeSteppingSchemes]}")
+
 # depending on tsm, we define the trial and test function space
 if tsm.num_stages == 1:
     Vbig = V
