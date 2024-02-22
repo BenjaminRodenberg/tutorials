@@ -49,6 +49,7 @@ from enum import Enum
 
 class TimeSteppingSchemes(Enum):
     GAUSS_LEGENDRE_2 = "GaussLegendre2"
+    GAUSS_LEGENDRE_8 = "GaussLegendre8"
     LOBATTO_IIIC_3 = "LobattoIIIC3"
 
 
@@ -131,6 +132,8 @@ u_n.rename("Temperature", "")
 # time stepping setup
 if args.time_stepping == TimeSteppingSchemes.GAUSS_LEGENDRE_2.value:
     tsm = GaussLegendre(2)
+elif args.time_stepping == TimeSteppingSchemes.GAUSS_LEGENDRE_8.value:
+    tsm = GaussLegendre(8)
 elif args.time_stepping == TimeSteppingSchemes.LOBATTO_IIIC_3.value:
     tsm = LobattoIIIC(3)
 else:

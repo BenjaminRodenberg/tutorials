@@ -137,6 +137,11 @@ if __name__ == "__main__":
         help="Waveform degree being used",
         type=int,
         default=1)
+    parser.add_argument(
+        "-es",
+        "--exchange-substeps",
+        help="Turn exchange of substeps on/off.",
+        action="store_true")
     args = parser.parse_args()
 
     df = pd.DataFrame()
@@ -145,7 +150,7 @@ if __name__ == "__main__":
         'time_window_size': None,  # will be defined later
         'max_time': args.max_time,
         'waveform_degree': args.waveform_degree,
-        'substeps': True,
+        'substeps': args.exchange_substeps,
     }
 
     root_folder = Path(__file__).parent.absolute()
