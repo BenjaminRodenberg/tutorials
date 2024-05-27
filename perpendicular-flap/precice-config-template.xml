@@ -7,7 +7,7 @@
       enabled="true" />
   </log>
 
-  <data:vector name="Force" waveform-degree="{{waveform_degree | default(1)}}" />
+  <data:vector name="Force" waveform-degree="{{waveform_degree | default(3)}}" />
   <data:vector name="Displacement" waveform-degree="{{waveform_degree | default(1)}}" />
 
   <mesh name="Fluid-Mesh" dimensions="2">
@@ -46,12 +46,12 @@
     <time-window-size value="{{time_window_size}}" />
     <max-time value="{{max_time | default(1)}}" />
     <participants first="Fluid" second="Solid" />
-    <exchange data="Force" mesh="Solid-Mesh" from="Fluid" to="Solid" />
-    <exchange data="Displacement" mesh="Solid-Mesh" from="Solid" to="Fluid" />
+    <exchange data="Force" mesh="Solid-Mesh" from="Fluid" to="Solid" substeps="true" initialize="true" />
+    <exchange data="Displacement" mesh="Solid-Mesh" from="Solid" to="Fluid" substeps="true" initialize="true" />
     <max-iterations value="50" />
     <relative-convergence-measure limit="5e-3" data="Displacement" mesh="Solid-Mesh" />
     <relative-convergence-measure limit="5e-3" data="Force" mesh="Solid-Mesh" />
-    <acceleration:IQN-ILS>
+    <!-- <acceleration:IQN-ILS>
       <data name="Displacement" mesh="Solid-Mesh" />
       <data name="Force" mesh="Solid-Mesh" />
       <preconditioner type="residual-sum" />
@@ -59,6 +59,6 @@
       <initial-relaxation value="0.5" />
       <max-used-iterations value="100" />
       <time-windows-reused value="15" />
-    </acceleration:IQN-ILS>
+    </acceleration:IQN-ILS> -->
   </coupling-scheme:parallel-implicit>
 </precice-configuration>

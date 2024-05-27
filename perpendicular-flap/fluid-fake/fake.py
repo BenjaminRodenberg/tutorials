@@ -3,7 +3,6 @@ from __future__ import division
 import argparse
 import numpy as np
 import precice
-from matplotlib import pyplot as plt
 
 configuration_file_name = "../precice-config.xml"
 participant_name = "Fluid"
@@ -15,6 +14,7 @@ solver_process_size = 1
 
 interface = precice.Participant(participant_name, configuration_file_name, solver_process_index, solver_process_size)
 dimensions = interface.get_mesh_dimensions(mesh_name)
+assert (dimensions == 2)
 
 # infomation about beam geometry and position
 W = 0.1  # width of the beam
@@ -29,6 +29,12 @@ vertices = np.zeros((n, dimensions))
 vertices[:, 0] = x_left  # all vertices are at left side of beam
 vertices[:, 1] = np.linspace(y_bottom, y_top, n)  # have n equally disrtibuted vertices
 vertex_ids = interface.set_mesh_vertices(mesh_name, vertices)
+
+if interface.requires_initial_data():
+    write_data = np.zeros((n, dimensions))
+    write_data[:, 0] = F_max * vertices[:, 1] / H  # linearly increasing load
+    write_data[:, 1] = 0
+    interface.write_data(mesh_name, write_data_name, vertex_ids, write_data)
 
 interface.initialize()
 solver_dt = np.inf  # we just want to use dt = precice_dt

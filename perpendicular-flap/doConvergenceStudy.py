@@ -35,7 +35,8 @@ def do_run(template_path, precice_config_params, participants):
 
     for participant in participants.values():
         with open(participant['root'] / participant['logfile'], "w") as outfile:
-            cmd = participant["exec"] + participant["params"] + [f"{keyword}={value}" for keyword, value in participant['kwargs'].items()]
+            cmd = participant["exec"] + participant["params"] + \
+                [f"{keyword}={value}" for keyword, value in participant['kwargs'].items()]
             p = subprocess.Popen(cmd,
                                  cwd=participant['root'],
                                  stdout=outfile)
@@ -59,16 +60,15 @@ def do_run(template_path, precice_config_params, participants):
         t_end = precice_config_params['max_time']
         qoi = "Displacement0"  # quantity of interest
 
-
         if pname == "Solid":
             df_ref = pd.read_csv(f"watchpoint_{participant['case']}_ref", comment="#", delim_whitespace=True)
             try:
-                qoi_ref_at_end = df_ref[df_ref["Time"]==t_end][qoi].to_list()[-1]
+                qoi_ref_at_end = df_ref[df_ref["Time"] == t_end][qoi].to_list()[-1]
             except IndexError:
                 qoi_ref_at_end = -1
 
             df = pd.read_csv(participant['root'] / f"precice-{pname}-watchpoint-Flap-Tip.log", comment="#", delim_whitespace=True)
-            qoi_at_end = df[df["Time"]==t_end][qoi].to_list()[-1]
+            qoi_at_end = df[df["Time"] == t_end][qoi].to_list()[-1]
             summary[f"{qoi} {pname}"] = qoi_at_end
             summary[f"error {pname}"] = abs(qoi_at_end - qoi_ref_at_end)
         elif pname == "Fluid":
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         "--time-window-refinements",
         help="Number of refinements by factor 2 for the time window size",
         type=int,
-        default=1)
+        default=5)
 
     args = parser.parse_args()
 
@@ -144,7 +144,6 @@ if __name__ == "__main__":
 
         for pname in participants.keys():
             participants[pname]["root"] = root_folder / participants[pname]["case"]
-
 
         summary = do_run(args.template_path, precice_config_params, participants)
         df = pd.concat([df, pd.DataFrame(summary, index=[0])], ignore_index=True)

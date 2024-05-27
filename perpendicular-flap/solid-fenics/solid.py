@@ -7,9 +7,8 @@ See also:
 
 # Import required libs
 from fenics import Constant, Function, AutoSubDomain, RectangleMesh, VectorFunctionSpace, interpolate, \
-    TrialFunction, TestFunction, Point, Expression, DirichletBC, nabla_grad, project, \
-    Identity, inner, dx, ds, sym, grad, lhs, rhs, dot, File, solve, PointSource, assemble_system
-from ufl import nabla_div
+    TrialFunction, TestFunction, Point, Expression, DirichletBC, project, \
+    Identity, inner, dx, ds, sym, grad, div, lhs, rhs, dot, File, solve, assemble_system
 import numpy as np
 import matplotlib.pyplot as plt
 from fenicsprecice import Adapter
@@ -59,7 +58,6 @@ du = TrialFunction(V)
 v = TestFunction(V)
 
 u_np1 = Function(V)
-saved_u_old = Function(V)
 
 # function known from previous timestep
 u_n = Function(V)
@@ -76,19 +74,22 @@ fixed_boundary = AutoSubDomain(clamped_boundary)
 precice = Adapter(adapter_config_filename="precice-adapter-config-fsi-s.json")
 
 # Initialize the coupling interface
-precice.initialize(coupling_boundary, read_function_space=V, write_object=V, fixed_boundary=fixed_boundary)
+precice.initialize(coupling_boundary, read_function_space=V, write_object=u_n, fixed_boundary=fixed_boundary)
 
 precice_dt = precice.get_max_time_step_size()
 fenics_dt = precice_dt  # if fenics_dt == precice_dt, no subcycling is applied
-# fenics_dt = 0.02  # if fenics_dt < precice_dt, subcycling is applied
+# n_substeps = 5  # number of substeps per window
+# fenics_dt = precice_dt / n_substeps  # if fenics_dt < precice_dt, subcycling is applied
 dt = Constant(np.min([precice_dt, fenics_dt]))
 
 # clamp the beam at the bottom
 bc = DirichletBC(V, Constant((0, 0)), fixed_boundary)
 
 # alpha method parameters
-alpha_m = Constant(0)
-alpha_f = Constant(0)
+alpha_m = Constant(0.2)
+alpha_f = Constant(0.4)
+# alpha_m = Constant(0)
+# alpha_f = Constant(0)
 
 """
 Check requirements for alpha_m and alpha_f from
@@ -104,12 +105,12 @@ beta = Constant((gamma + 0.5)**2 / 4.)
 
 # Define strain
 def epsilon(u):
-    return 0.5 * (nabla_grad(u) + nabla_grad(u).T)
+    return 0.5 * (grad(u) + grad(u).T)
 
 
 # Define Stress tensor
 def sigma(u):
-    return lambda_ * nabla_div(u) * Identity(dim) + 2 * mu * epsilon(u)
+    return lambda_ * div(u) * Identity(dim) + 2 * mu * epsilon(u)
 
 
 # Define Mass form
@@ -196,13 +197,14 @@ displacement_out << (u_n, t)
 while precice.is_coupling_ongoing():
 
     if precice.requires_writing_checkpoint():  # write checkpoint
-        precice.store_checkpoint(u_n, t, n)
+        precice.store_checkpoint((u_n, v_n, a_n), t, n)
 
     precice_dt = precice.get_max_time_step_size()
     dt = Constant(np.min([precice_dt, fenics_dt]))
 
     # read data from preCICE and get a new coupling expression
-    read_data = precice.read_data(dt)
+    # sample force F at $F(t_{n+1-\alpha_f})$ (see generalized alpha paper)
+    read_data = precice.read_data((1 - float(alpha_f)) * dt)
 
     # Update the point sources on the coupling boundary with the new read data
     Forces_x, Forces_y = precice.get_point_sources(read_data)
@@ -227,17 +229,20 @@ while precice.is_coupling_ongoing():
 
     # Either revert to old step if timestep has not converged or move to next timestep
     if precice.requires_reading_checkpoint():  # roll back to checkpoint
-        u_cp, t_cp, n_cp = precice.retrieve_checkpoint()
+        uva_cp, t_cp, n_cp = precice.retrieve_checkpoint()
+        u_cp, v_cp, a_cp = uva_cp
         u_n.assign(u_cp)
+        v_n.assign(v_cp)
+        a_n.assign(a_cp)
         t = t_cp
         n = n_cp
     else:
+        update_fields(u_np1, u_n, v_n, a_n)
         u_n.assign(u_np1)
         t += float(dt)
         n += 1
 
     if precice.is_time_window_complete():
-        update_fields(u_np1, saved_u_old, v_n, a_n)
         if n % 10 == 0:
             displacement_out << (u_n, t)
 

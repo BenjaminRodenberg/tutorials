@@ -9,14 +9,10 @@ summary: This tutorial describes how to run a partitioned two-phse fluid simulat
 Get the [case files of this tutorial](https://github.com/precice/tutorials/tree/master/partitioned-pipe-two-phase). Read how in the [tutorials introduction](https://www.precice.org/tutorials.html).
 {% endnote %}
 
-{% note %}
-This tutorial relies on yet unreleased features of the OpenFOAM adapter. You need [preCICE v2](https://github.com/precice/precice/releases)) and [the ff-develop branch of the OpenFOAM adapter](https://github.com/precice/openfoam-adapter/tree/ff-develop) to run this tutorial.
-{% endnote %}
-
 ## Setup
 
 This scenario consists of two pipes connected in series, both simulated with OpenFOAM's interFoam solver. Fluids can enter from the left (here $$ z=0 $$) boundary of the Fluid1 participant with a uniform velocity profile ($$ u_{in} = 1 m/s $$) and fixed flux pressure boundary coundition.
-The simulation begins with some water being present at the bottom left of the pipe. The volume fraction variable alpha is set to be 1 (water) at the bottom half of the inlet and 0 (air) at the top half. The water stream will approach the coupling interface at around $t=5s$ in the simulation.
+The simulation begins with some water being present at the bottom left of the pipe. The volume fraction variable alpha is set to be 1 (water) at the bottom half of the inlet and 0 (air) at the top half. The water stream will approach the coupling interface at around $$ t=5s $$ in the simulation.
 At the right boundary of Fluid2 there is a zero gradient boundary condition for velocity and alpha as well as a total pressure set to zero.
 
 ![two-phase-setup](images/tutorials-partitioned-pipe-two-phase-setup.png)
@@ -36,6 +32,12 @@ FF
 {% note %}
 This is a very basic example case demonstrating the coupling of a two-phase flow. To keep it as simple as possible, gravity is set to $0$ to avoid any kind of turbulences/vortices. Read more in the accompanying conference paper [1].
 {% endnote %}
+
+## Configuration
+
+preCICE configuration (image generated using the [precice-config-visualizer](https://precice.org/tooling-config-visualization.html)):
+
+![preCICE configuration visualization](images/tutorials-partitioned-pipe-two-phase-precice-config.png)
 
 ## Available solvers
 
