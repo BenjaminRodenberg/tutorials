@@ -37,12 +37,6 @@ if interface.requires_initial_data():
     write_data[:, 1] = 0
     interface.write_data(mesh_name, write_data_name, vertex_ids, write_data)
 
-if interface.requires_initial_data():
-    write_data = np.zeros((n, dimensions))
-    write_data[:, 0] = F_max * vertices[:, 1] / H  # linearly increasing load
-    write_data[:, 1] = 0
-    interface.write_data(mesh_name, write_data_name, vertex_ids, write_data)
-
 interface.initialize()
 solver_dt = np.inf  # we just want to use dt = precice_dt
 
