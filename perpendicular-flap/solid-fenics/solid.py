@@ -27,15 +27,6 @@ def neumann_boundary(x, on_boundary):
     return on_boundary and ((abs(x[1] - 1) < tol) or abs(abs(x[0]) - W / 2) < tol)
 
 
-parser = argparse.ArgumentParser(description="Solving elasticity problem")
-parser.add_argument(
-    "-s",
-    "--n-substeps",
-    help="number of substeps performed by this solver",
-    type=int,
-    default=1)
-args = parser.parse_args()
-
 # Geometry and material properties
 dim = 2  # number of dimensions
 H = 1
@@ -85,7 +76,7 @@ precice = Adapter(adapter_config_filename="precice-adapter-config-fsi-s.json")
 precice.initialize(coupling_boundary, read_function_space=V, write_object=u_n, fixed_boundary=fixed_boundary)
 
 precice_dt = precice.get_max_time_step_size()
-fenics_dt = precice_dt / args.n_substeps
+fenics_dt = precice_dt / 100
 dt = Constant(np.min([precice_dt, fenics_dt]))
 
 # clamp the beam at the bottom

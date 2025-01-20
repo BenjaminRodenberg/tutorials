@@ -7,8 +7,8 @@
       enabled="true" />
   </log>
 
-  <data:vector name="Force" waveform-degree="{{waveform_degree}}" />
-  <data:vector name="Displacement" waveform-degree="{{waveform_degree}}" />
+  <data:vector name="Force" waveform-degree="1" />
+  <data:vector name="Displacement" waveform-degree="1" />
 
   <mesh name="Fluid-Mesh" dimensions="2">
     <use-data name="Force" />
@@ -43,15 +43,18 @@
   <m2n:sockets acceptor="Fluid" connector="Solid" exchange-directory=".." />
 
   <coupling-scheme:parallel-implicit>
-    <time-window-size value="{{time_window_size}}" />
-    <max-time value="{{max_time | default(1)}}" />
+    <time-window-size value="1.0" />
+    <max-time value="5" />
     <participants first="Fluid" second="Solid" />
-    <exchange data="Force" mesh="Solid-Mesh" from="Fluid" to="Solid" substeps="{{substeps}}" initialize="true" />
-    <exchange data="Displacement" mesh="Solid-Mesh" from="Solid" to="Fluid" substeps="{{substeps}}" initialize="true" />
+    <exchange data="Force" mesh="Solid-Mesh" from="Fluid" to="Solid" substeps="False" initialize="true" />
+    <exchange data="Displacement" mesh="Solid-Mesh" from="Solid" to="Fluid" substeps="False" initialize="true" />
     <max-iterations value="50" />
     <relative-convergence-measure limit="5e-3" data="Displacement" mesh="Solid-Mesh" />
     <relative-convergence-measure limit="5e-3" data="Force" mesh="Solid-Mesh" />
-    <acceleration:IQN-ILS>
+    <!-- for pre ad68bc0 and v3.1.2 -->
+    <acceleration:IQN-ILS>  
+    <!-- for post ad68bc0 -->
+    <!-- <acceleration:IQN-ILS reduced-time-grid="false"> -->
       <data name="Displacement" mesh="Solid-Mesh" />
       <data name="Force" mesh="Solid-Mesh" />
       <preconditioner type="residual-sum" />
